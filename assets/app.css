@@ -1,0 +1,315 @@
+:root {
+  --c-red: #FF0000;
+  --c-yellow: #FFFF37;
+  --c-green: #28FF28;
+  --c-darkgray: #3C3C3C;
+  --c-lightblue: #C4E1FF;
+  --c-lightgreen: #CEFFCE;
+  --c-lightred: #FFB5B5;
+  --c-lightgray: #F0F0F0;
+  --ink: #222;
+  --line: #ccc;
+  --bg: #fff;
+  --accent: #06c;
+  --on-accent: #fff;
+  --empty-bg: #fafafa;
+  --on-dark: #fff;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  font-family: "Microsoft JhengHei", "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  margin: 0;
+  padding: 1.5rem;
+}
+h1 {
+  font-size: 1.4rem;
+}
+h2 {
+  font-size: 1.1rem;
+}
+nav {
+  margin-bottom: 1rem;
+}
+nav a {
+  margin-right: 1rem;
+  text-decoration: none;
+  color: var(--accent);
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: .5rem 0 1.5rem;
+}
+th, td {
+  border: 1px solid var(--line);
+  padding: .4rem .6rem;
+  text-align: left;
+  font-size: .9rem;
+  overflow-wrap: break-word;
+}
+th {
+  background: var(--c-lightgray);
+}
+.btn {
+  display: inline-block;
+  padding: .35rem .8rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--on-accent);
+  text-decoration: none;
+  cursor: pointer;
+  font: inherit;
+  line-height: normal;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.btn-secondary {
+  background: var(--bg);
+  color: var(--accent);
+}
+.btn-sm {
+  font-size: .8rem;
+  padding: .2rem .5rem;
+}
+.btn-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+form label {
+  display: block;
+  margin: .5rem 0 .2rem;
+  font-size: .9rem;
+}
+form input, form select, form textarea {
+  width: 100%;
+  max-width: 420px;
+  padding: .35rem;
+}
+.overview {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.overview .box {
+  border: 1px solid var(--line);
+  padding: .5rem .8rem;
+  border-radius: 4px;
+}
+.cell-red {
+  background: var(--c-red);
+}
+.cell-yellow {
+  background: var(--c-yellow);
+}
+.cell-green {
+  background: var(--c-green);
+}
+.cell-darkgray {
+  background: var(--c-darkgray);
+  color: var(--on-dark);
+}
+.cell-lightblue {
+  background: var(--c-lightblue);
+}
+.cell-lightgreen {
+  background: var(--c-lightgreen);
+}
+.cell-lightred {
+  background: var(--c-lightred);
+}
+.cal-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .3rem;
+  margin: .5rem 0 1rem;
+}
+.cal-tab.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.cal-grid {
+  table-layout: fixed;
+}
+.cal-grid td {
+  vertical-align: top;
+  height: 5rem;
+}
+.cal-day {
+  overflow: auto;
+}
+.cal-empty {
+  background: var(--empty-bg);
+}
+.cal-daynum {
+  font-weight: bold;
+  font-size: .8rem;
+}
+.cal-item {
+  font-size: .75rem;
+  line-height: 1.2;
+  margin-top: .15rem;
+}
+
+/* 登入頁：畫面置中的卡片 */
+.auth-wrap {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 70vh;
+}
+.auth-box {
+  width: 100%;
+  max-width: 340px;
+  padding: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.auth-box h1 {
+  margin-top: 0;
+  text-align: center;
+}
+.auth-box .btn {
+  width: 100%;
+  margin-top: .5rem;
+}
+.caps-hint {
+  color: #b45309;
+  font-size: .8rem;
+  margin: .3rem 0 0;
+}
+
+/* 使用者後台：緊湊化編輯列，避免輸入框撐寬擠壓右側欄位 */
+.admin-users {
+  width: 100%;
+}
+.admin-users th {
+  white-space: nowrap;
+}
+.admin-users th, .admin-users td {
+  vertical-align: top;
+}
+
+/* 工號/Email/狀態/操作 貼齊內容，剩餘寬度自動分給 基本資料 與 部門，讓表格左右填滿 */
+.admin-users th:nth-child(2), .admin-users td:nth-child(2),
+.admin-users th:nth-child(3), .admin-users td:nth-child(3),
+.admin-users th:nth-child(4), .admin-users td:nth-child(4),
+.admin-users th:nth-child(6), .admin-users td:nth-child(6) {
+  width: 1%;
+  white-space: nowrap;
+}
+.admin-users form {
+  display: flex;
+  gap: .3rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  max-width: 440px;
+}
+.admin-users input:not([type="checkbox"]), .admin-users select {
+  flex: 1 1 30%;
+  min-width: 90px;
+  width: auto;
+  max-width: none;
+  padding: .25rem .4rem;
+  font-size: .85rem;
+  box-sizing: border-box;
+}
+.admin-users button {
+  flex: 0 0 auto;
+  padding: .25rem .7rem;
+  font-size: .85rem;
+}
+.checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  margin: .5rem 0;
+  white-space: nowrap;
+}
+
+/* 人員搜尋選擇器（邊打邊搜尋的建議清單，見 assets/app.js） */
+.person-picker {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+  max-width: 420px;
+  flex: 1 1 160px;
+  min-width: 160px;
+}
+.person-picker-input {
+  width: 100%;
+}
+.person-picker-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--bg);
+  border: 1px solid #999;
+  border-radius: 8px;
+  margin-top: .25rem;
+  max-height: 260px;
+  overflow-y: auto;
+  box-shadow: 0 4px 12px rgba(0,0,0,.25);
+}
+.person-picker-item {
+  padding: .5rem .8rem;
+  cursor: pointer;
+  border-radius: 6px;
+  margin: .15rem;
+  font-size: .9rem;
+}
+.person-picker-item:hover, .person-picker-item.active {
+  background: var(--c-lightblue);
+}
+.person-picker-item strong {
+  color: var(--accent);
+}
+
+/* ---------------------------------------------------------------
+   工具類（CSP 收緊後不再用 inline style／inline script，樣式與可切換的
+   顯示狀態集中放這裡；.hidden 是唯一的「隱藏」開關，JS 一律用
+   classList.toggle('hidden', ...) 切換，不直接寫 element.style）
+--------------------------------------------------------------- */
+.hidden { display: none !important; }
+.inline { display: inline !important; }
+.flex { display: flex; align-items: center; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-end { align-items: flex-end; }
+.gap-3 { gap: .3rem; }
+.gap-4 { gap: .4rem; }
+.gap-5 { gap: .5rem; }
+.gap-6 { gap: .6rem; }
+.my-1 { margin: 1rem 0; }
+.my-05 { margin: .5rem 0; }
+.my-03 { margin: .3rem 0; }
+.mt-2 { margin-top: 2rem; }
+.pad-sm { padding: .5rem; }
+.w-auto { width: auto; max-width: none; }
+.w-narrow { width: 5rem; }
+.w-search { max-width: 280px; }
+.w-form-narrow { max-width: 360px; }
+.w-filter { width: 160px; box-sizing: border-box; }
+.field-break { flex-basis: 100%; height: 0; }
+.text-muted { color: #666; }
+.text-hint { color: #666; font-size: .85rem; }
+.text-danger { color: #a00; }
+.text-danger-strong { color: #c00; }
+.notice-warn { padding: .5rem; background: #fff8e1; border: 1px solid #f0c36d; }
+.notice-success { padding: .75rem; background: var(--c-lightgreen); border-radius: 4px; }
+.legend { font-size: 12px; font-weight: normal; color: #555; vertical-align: middle; }
+.legend-dot { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: middle; }
+.row-divider td { border: none; background: var(--bg); height: .6rem; }
+.dept-row { display: flex; align-items: center; gap: .4rem; margin: .2rem 0; }

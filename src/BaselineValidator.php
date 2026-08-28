@@ -14,7 +14,7 @@ final class BaselineValidator
         $freq = EventFrequency::tryFrom($frequency);
 
         // 這些頻率不需要基準值（可空）；未知頻率字串（$freq 為 null）視為「不是可空頻率」，落到下面繼續驗證
-        if ($freq?->isBaselineOptional() ?? false) {
+        if (EventFrequency::isBaselineOptional($freq)) {
             return null;
         }
 
@@ -22,18 +22,31 @@ final class BaselineValidator
             return '此頻率需填寫基準值。';
         }
 
-        return match ($freq) {
-            EventFrequency::Weekly => BaselineFormat::parseWeekday($b) !== null
-                ? null : '「每週」基準值須為 1–7（1=週一…7=週日）。',
-            EventFrequency::Monthly => BaselineFormat::parseMonthlyDay($b) !== null
-                ? null : '「每月」基準值須為 1–31 的號數或 EOM。',
-            EventFrequency::Yearly => BaselineFormat::parseMonthDay($b) !== null
-                ? null : '「每年」基準值須為 MM-DD 格式（例：07-31）。',
-            EventFrequency::HalfYear => BaselineFormat::parseHalfYear($b) !== null
-                ? null : '「半年」基準值須為兩組 MM-DD，以逗號分隔（例：03-31,09-30）。',
-            EventFrequency::TwoYear, EventFrequency::ThreeYear => BaselineFormat::parseFullDate($b) !== null
-                ? null : '「' . $frequency . '」基準值須為 YYYY-MM-DD 格式（例：2025-06-30）。',
-            default => null, // 未知頻率（含不合法字串）不阻擋
-        };
+        switch ($freq) {
+            case EventFrequency::Weekly:
+                return BaselineFormat::parseWeekday($b) !== null
+                    ? null : '「每週」基準值須為 1–7（1=週一…7=週日）。';
+            case EventFrequency::Monthly:
+                return BaselineFormat::parseMonthlyDay($b) !== null
+                    ? null : '「每月」基準值須為 1–31 的號數或 EOM。';
+            case EventFrequency::OddMonth:
+                return BaselineFormat::parseMonthlyDay($b) !== null
+                    ? null : '「單數月」基準值須為 1–31 的號數或 EOM。';
+            case EventFrequency::EvenMonth:
+                return BaselineFormat::parseMonthlyDay($b) !== null
+                    ? null : '「雙數月」基準值須為 1–31 的號數或 EOM。';
+            case EventFrequency::Yearly:
+                return BaselineFormat::parseMonthDay($b) !== null
+                    ? null : '「每年」基準值須為 MM-DD 格式（例：07-31）。';
+            case EventFrequency::HalfYear:
+                return BaselineFormat::parseHalfYear($b) !== null
+                    ? null : '「半年」基準值須為兩組 MM-DD，以逗號分隔（例：03-31,09-30）。';
+            case EventFrequency::TwoYear:
+            case EventFrequency::ThreeYear:
+                return BaselineFormat::parseFullDate($b) !== null
+                    ? null : '「' . $frequency . '」基準值須為 YYYY-MM-DD 格式（例：2025-06-30）。';
+            default:
+                return null; // 未知頻率（含不合法字串）不阻擋
+        }
     }
 }

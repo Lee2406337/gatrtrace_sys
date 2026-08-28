@@ -2,7 +2,7 @@
 $weekdayNames = ['日','一','二','三','四','五','六']; ?>
 <h1>月份行事曆（<?= (int)$year ?> 年）
   <span class="legend">
-    <span class="legend-dot cell-lightblue"></span> 每週／每月事項
+    <span class="legend-dot cell-lightblue"></span> 每週／每月／單數月／雙數月事項
     <span class="legend-dot cell-lightgreen"></span> 半年／每年／2年／3年事項
     <span class="legend-dot cell-lightred"></span> 合約到期日
   </span>

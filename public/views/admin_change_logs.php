@@ -7,7 +7,9 @@ $qs = function (int $pn) use ($filters): string {
         'flt_from' => $filters['date_from'], 'flt_to' => $filters['date_to'],
         'flt_page' => $filters['page'], 'flt_action' => $filters['action'], 'flt_actor' => $filters['actor'],
     ];
-    return 'admin.php?' . http_build_query(array_filter($params, fn($v) => $v !== ''));
+    return 'admin.php?' . http_build_query(array_filter($params, function ($v) {
+        return $v !== '';
+    }));
 };
 ?>
 <h1>修改紀錄</h1>

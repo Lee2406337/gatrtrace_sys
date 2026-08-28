@@ -3,7 +3,12 @@ namespace App\Repository;
 
 final class ChangeLogRepository
 {
-    public function __construct(private \PDO $pdo) {}
+    private $pdo;
+
+    public function __construct(\PDO $pdo)
+    {
+        $this->pdo = $pdo;
+    }
 
     public function insert(string $page, string $action, string $summary, string $actor, ?int $actorId): void
     {

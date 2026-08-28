@@ -2,10 +2,9 @@
 /** @var string $type */
 /** @var int $inserted */
 /** @var int $skipped */
-$dest = match ($type) {
-    'contracts' => ['index.php?r=contracts', '合約清單'],
-    default     => ['index.php?r=events', '事件總攬'],
-};
+$dest = $type === 'contracts'
+    ? ['index.php?r=contracts', '合約清單']
+    : ['index.php?r=events', '事件總攬'];
 ?>
 <h1>匯入結果</h1>
 <p>成功匯入 <strong><?= $inserted ?></strong> 筆，跳過 <strong><?= $skipped ?></strong> 筆。</p>

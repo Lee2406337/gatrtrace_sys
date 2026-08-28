@@ -1,8 +1,9 @@
 <?php
 return [
-    'host'    => '....', 
-    'dbname'  => '....', 
-    'user'    => '....', 
-    'pass'    => '....',
-    'charset' => '....',
+// 要改成真實DB
+    'host'    => '127.0.0.1',
+    'dbname'  => 'newsys',
+    'user'    => 'root',
+    'pass'    => '',
+    'charset' => 'utf8mb4',
 ];

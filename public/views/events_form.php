@@ -2,12 +2,13 @@
 // 「不定期」已併入「其他」，新增/一般編輯不再提供此選項；
 // 若編輯的既有資料 frequency 剛好是「不定期」，仍保留在清單中，避免存檔時被靜默改成其他頻率。
 $freqs = [
-    \App\EventFrequency::Weekly->value, \App\EventFrequency::Monthly->value, \App\EventFrequency::HalfYear->value,
-    \App\EventFrequency::Yearly->value, \App\EventFrequency::TwoYear->value, \App\EventFrequency::ThreeYear->value,
+    \App\EventFrequency::Weekly, \App\EventFrequency::Monthly,
+    \App\EventFrequency::OddMonth, \App\EventFrequency::EvenMonth, \App\EventFrequency::HalfYear,
+    \App\EventFrequency::Yearly, \App\EventFrequency::TwoYear, \App\EventFrequency::ThreeYear,
 ];
-if (($row['frequency'] ?? '') === \App\EventFrequency::Irregular->value) { $freqs[] = \App\EventFrequency::Irregular->value; }
-$freqs[] = \App\EventFrequency::ByContract->value;
-$freqs[] = \App\EventFrequency::Other->value;
+if (($row['frequency'] ?? '') === \App\EventFrequency::Irregular) { $freqs[] = \App\EventFrequency::Irregular; }
+$freqs[] = \App\EventFrequency::ByContract;
+$freqs[] = \App\EventFrequency::Other;
 $weekdays = [];
 for ($w = 1; $w <= 7; $w++) { $weekdays[(string) $w] = '週' . baseline_pad2($w); }
 $curYear = (int) date('Y');
@@ -42,7 +43,7 @@ $curYear = (int) date('Y');
         <?php endforeach; ?>
       </select>
     </div>
-    <div class="baseline-group hidden" data-freq="每月">
+    <div class="baseline-group hidden" data-freq="每月,單數月,雙數月">
       <select id="bl-month-day">
         <option value="">請選擇號數</option>
         <?php for ($d = 1; $d <= 31; $d++): ?>

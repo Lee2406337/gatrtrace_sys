@@ -15,6 +15,8 @@ use App\Repository\ApprovalStepsRepository;
 use App\Repository\ApprovalsRepository;
 use App\Repository\ChangeLogRepository;
 use App\Repository\MonthlyTodosRepository;
+use App\Repository\ExtraRecipientRepository;
+use App\Departments;
 
 Auth::requireLogin();
 if (!Auth::isAdmin()) { header('Location: index.php?r=events'); exit; }
@@ -122,6 +124,8 @@ if ($r === 'approval-steps') {
         $order = (string)($d['step_order'] ?? '');
         if (!ctype_digit($order) || (int)$order < 1) {
             $err = 'step_order 須為 >=1 的整數';
+        } elseif (!in_array($d['step_kind'] ?? 'approve', ['approve', 'notify'], true)) {
+            $err = 'step_kind 不合法';
         } elseif (!in_array($d['signer_kind'] ?? '', ['role', 'user'], true)) {
             $err = 'signer_kind 不合法';
         } elseif (($d['signer_kind'] === 'role') && !in_array($d['signer_value'] ?? '', ['部門主管', '管理部主管'], true)) {
@@ -153,6 +157,47 @@ if ($r === 'approval-steps') {
     }
     $users = (new UsersRepository($pdo))->all();
     render('admin_approval_steps', ['title' => '簽核關卡設定', 'steps' => $repo->all(), 'users' => $users], 'admin_layout');
+    exit;
+}
+
+if ($r === 'extra-recipients') {
+    $repo = new ExtraRecipientRepository($pdo);
+    if ($action === 'save') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { header('Location: admin.php?r=extra-recipients'); exit; }
+        $d = $_POST;
+        // 若前端提供分欄位（角色/使用者下拉），依 signer_kind 取用對應值，跟簽核關卡設定同一套做法
+        if (($d['signer_kind'] ?? '') === 'role' && isset($d['signer_value_role'])) {
+            $d['signer_value'] = $d['signer_value_role'];
+        } elseif (($d['signer_kind'] ?? '') === 'user' && isset($d['signer_value_user'])) {
+            $d['signer_value'] = $d['signer_value_user'];
+        }
+        $err = null;
+        if (!in_array($d['department'] ?? '', Departments::ALL, true)) {
+            $err = '部門不合法';
+        } elseif (!in_array($d['signer_kind'] ?? '', ['role', 'user'], true)) {
+            $err = 'signer_kind 不合法';
+        } elseif (($d['signer_kind'] === 'role') && !in_array($d['signer_value'] ?? '', ['部門主管', '管理部主管'], true)) {
+            $err = '角色須為「部門主管」或「管理部主管」';
+        } elseif ($d['signer_kind'] === 'user') {
+            $uid = (int)($d['signer_value'] ?? 0);
+            if ($uid < 1 || !(new UsersRepository($pdo))->isActive($uid)) {
+                $err = '指定人員須為存在且在職的使用者';
+            }
+        }
+        if (($d['label'] ?? '') === '') { $err = $err ?? '顯示名稱不可空白'; }
+        if ($err !== null) {
+            header('Location: admin.php?r=extra-recipients&err=' . urlencode($err)); exit;
+        }
+        if (!empty($d['id'])) { $repo->update((int)$d['id'], $d); }
+        else { $repo->create($d); }
+        header('Location: admin.php?r=extra-recipients'); exit;
+    }
+    if ($action === 'delete') {
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') { header('Location: admin.php?r=extra-recipients'); exit; }
+        $repo->delete((int)$_POST['id']); header('Location: admin.php?r=extra-recipients'); exit;
+    }
+    $users = (new UsersRepository($pdo))->all();
+    render('admin_extra_recipients', ['title' => '提醒信副本設定', 'rules' => $repo->all(), 'users' => $users], 'admin_layout');
     exit;
 }
 
@@ -216,19 +261,33 @@ if ($r === 'todos') {
 
 if ($r === 'import') {
     // 兩種匯入類型共用的小工具：型別正規化、分類函式、Repository、範本檔名、ChangeLog 頁面標籤，
-    // 都用同一個 match() 集中對應，避免三個 action 各自重複一套 if/else 判斷
-    $normalizeImportType = fn(string $t): string => $t === 'contracts' ? 'contracts' : 'events';
-    $classifyRows = fn(string $type, array $parsed) => match ($type) {
-        'contracts' => ImportService::classifyContractRows($pdo, $parsed),
-        default     => ImportService::classifyEventRows($pdo, $parsed),
+    // 都用同一組 closure 集中對應，避免三個 action 各自重複一套 if/else 判斷
+    $normalizeImportType = function (string $t): string {
+        return $t === 'contracts' ? 'contracts' : 'events';
     };
-    $repoFor = fn(string $type) => match ($type) {
-        'contracts' => new ContractsRepository($pdo),
-        default     => new EventsRepository($pdo),
+    $classifyRows = function (string $type, array $parsed) use ($pdo) {
+        switch ($type) {
+            case 'contracts':
+                return ImportService::classifyContractRows($pdo, $parsed);
+            default:
+                return ImportService::classifyEventRows($pdo, $parsed);
+        }
     };
-    $labelFor = fn(string $type) => match ($type) {
-        'contracts' => '合約',
-        default     => '例行事項',
+    $repoFor = function (string $type) use ($pdo) {
+        switch ($type) {
+            case 'contracts':
+                return new ContractsRepository($pdo);
+            default:
+                return new EventsRepository($pdo);
+        }
+    };
+    $labelFor = function (string $type) {
+        switch ($type) {
+            case 'contracts':
+                return '合約';
+            default:
+                return '例行事項';
+        }
     };
 
     if ($action === 'template') {
@@ -286,8 +345,12 @@ echo '找不到頁面';
     http_response_code(503);
     exit('資料庫連線逾時或中斷，請重新整理再試一次。若持續發生，請檢查網路連線是否穩定。');
 } catch (\Throwable $e) {
-    // 兜底：避免任何未預期例外把完整 stack trace（含絕對路徑）直接印給瀏覽器
-    error_log('[newsys/admin] ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+    // 兜底：避免任何未預期例外把完整 stack trace（含絕對路徑）直接印給瀏覽器。
+    // log 只記類別/訊息/檔案位置，刻意不用 getTraceAsString()——PHP 7.3 沒有
+    // zend.exception_ignore_args 這個 ini（7.4+ 才有），trace 裡每個 frame 的參數
+    // 一定會被印出來，萬一某次例外剛好發生在密碼相關呼叫（使用者建立/改密碼）中途，
+    // 密碼明碼就會被完整寫進這份 log。
+    error_log('[newsys/admin] ' . get_class($e) . '：' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
     exit('系統發生錯誤，請重新整理後再試。若持續發生，請聯絡系統管理員。');
 }

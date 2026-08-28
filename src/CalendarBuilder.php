@@ -5,9 +5,9 @@ require_once __DIR__ . '/../config/color_rules.php';
 
 final class CalendarBuilder
 {
-    private const MONTHLY = [EventFrequency::Weekly->value, EventFrequency::Monthly->value];
-    private const YEARLY  = [EventFrequency::Yearly->value, EventFrequency::HalfYear->value, EventFrequency::TwoYear->value, EventFrequency::ThreeYear->value];
-    private const UNDATED = [EventFrequency::Irregular->value, EventFrequency::ByContract->value, EventFrequency::Other->value];
+    private const MONTHLY = [EventFrequency::Weekly, EventFrequency::Monthly, EventFrequency::OddMonth, EventFrequency::EvenMonth];
+    private const YEARLY  = [EventFrequency::Yearly, EventFrequency::HalfYear, EventFrequency::TwoYear, EventFrequency::ThreeYear];
+    private const UNDATED = [EventFrequency::Irregular, EventFrequency::ByContract, EventFrequency::Other];
 
     public function build(int $year, int $month, array $events, array $contracts): array
     {

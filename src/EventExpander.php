@@ -5,15 +5,26 @@ final class EventExpander
 {
     public function expand(string $frequency, ?string $baseline, int $year, int $month): array
     {
-        return match (EventFrequency::tryFrom($frequency)) {
-            EventFrequency::Monthly => $this->expandMonthly($baseline, $year, $month),
-            EventFrequency::Yearly => $this->expandYearly($baseline, $year, $month),
-            EventFrequency::HalfYear => $this->expandHalfYear($baseline, $year, $month),
-            EventFrequency::Weekly => $this->expandWeekly($baseline, $year, $month),
-            EventFrequency::TwoYear => $this->expandMultiYear($baseline, 2, $year, $month),
-            EventFrequency::ThreeYear => $this->expandMultiYear($baseline, 3, $year, $month),
-            default => [],
-        };
+        switch (EventFrequency::tryFrom($frequency)) {
+            case EventFrequency::Monthly:
+                return $this->expandMonthly($baseline, $year, $month);
+            case EventFrequency::OddMonth:
+                return $this->expandParityMonth($baseline, $year, $month, 1);
+            case EventFrequency::EvenMonth:
+                return $this->expandParityMonth($baseline, $year, $month, 0);
+            case EventFrequency::Yearly:
+                return $this->expandYearly($baseline, $year, $month);
+            case EventFrequency::HalfYear:
+                return $this->expandHalfYear($baseline, $year, $month);
+            case EventFrequency::Weekly:
+                return $this->expandWeekly($baseline, $year, $month);
+            case EventFrequency::TwoYear:
+                return $this->expandMultiYear($baseline, 2, $year, $month);
+            case EventFrequency::ThreeYear:
+                return $this->expandMultiYear($baseline, 3, $year, $month);
+            default:
+                return [];
+        }
     }
 
     private function expandMonthly(?string $baseline, int $year, int $month): array
@@ -24,6 +35,14 @@ final class EventExpander
         }
         $day = $parsed['eom'] ? $this->daysInMonth($year, $month) : $parsed['day'];
         return [$this->clampDay($year, $month, $day)];
+    }
+
+    private function expandParityMonth(?string $baseline, int $year, int $month, int $parity): array
+    {
+        if ($month % 2 !== $parity) {
+            return [];
+        }
+        return $this->expandMonthly($baseline, $year, $month);
     }
 
     private function expandYearly(?string $baseline, int $year, int $month): array

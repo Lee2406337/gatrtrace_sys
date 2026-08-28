@@ -7,15 +7,24 @@ use App\Smtp\StreamSmtpTransport;
 
 final class SmtpMailer implements Mailer
 {
-    private string $host;
-    private int $port;
-    private string $encryption;
-    private string $username;
-    private string $password;
-    private string $fromEmail;
-    private string $fromName;
-    private float $timeout;
-    private SmtpTransport $transport;
+    /** @var string */
+    private $host;
+    /** @var int */
+    private $port;
+    /** @var string */
+    private $encryption;
+    /** @var string */
+    private $username;
+    /** @var string */
+    private $password;
+    /** @var string */
+    private $fromEmail;
+    /** @var string */
+    private $fromName;
+    /** @var float */
+    private $timeout;
+    /** @var SmtpTransport */
+    private $transport;
 
     public function __construct(array $config, ?SmtpTransport $transport = null)
     {
@@ -113,7 +122,7 @@ final class SmtpMailer implements Mailer
         try {
             $this->transport->write("QUIT\r\n");
             $this->transport->readLine();
-        } catch (\Throwable) {
+        } catch (\Throwable $e) {
             // QUIT 失敗不影響本次寄送結果，finally 還是會關閉底層連線
         }
     }

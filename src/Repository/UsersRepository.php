@@ -3,7 +3,12 @@ namespace App\Repository;
 
 final class UsersRepository
 {
-    public function __construct(private \PDO $pdo) {}
+    private $pdo;
+
+    public function __construct(\PDO $pdo)
+    {
+        $this->pdo = $pdo;
+    }
 
     /** 僅接受 在職/停用，非法值正規化為 在職（避免 STRICT 模式非法 ENUM 500） */
     private function normStatus($v): string
@@ -39,6 +44,20 @@ final class UsersRepository
         $st = $this->pdo->prepare("SELECT COUNT(*) FROM users WHERE id = ? AND employment_status = '在職'");
         $st->execute([$id]);
         return (int) $st->fetchColumn() > 0;
+    }
+
+    /** 該部門目前在職的主管 user id，查無則回 null——簽核關卡「部門主管」角色解析、
+     *  額外收件人規則「部門主管」解析共用同一份定義 */
+    public function activeManagerOf(string $department): ?int
+    {
+        $st = $this->pdo->prepare(
+            "SELECT u.id FROM user_departments ud JOIN users u ON u.id = ud.user_id
+             WHERE ud.department = ? AND ud.is_manager = 1 AND u.employment_status = '在職'
+             ORDER BY u.id LIMIT 1"
+        );
+        $st->execute([$department]);
+        $id = $st->fetchColumn();
+        return $id === false ? null : (int) $id;
     }
 
     /** 提醒信簽核通知用：在職才回 email/name，查無此人或已停用一律回 null */

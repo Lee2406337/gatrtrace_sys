@@ -1,7 +1,7 @@
 <?php
 // 顏色規則單一來源（規格書第 5 節）。回傳 assets/app.css 定義的 CSS class 名稱。
 
-function todo_cell_class(string $status, ?int $remainingDays): string
+function todo_cell_class(string $status, ?int $remainingDays, string $frequency = ''): string
 {
     // 已完成、簽核中都算工作本身已完成（簽核中只是在跑正式簽核流程），一律綠色
     if ($status === '已完成' || $status === '簽核中') {
@@ -11,10 +11,17 @@ function todo_cell_class(string $status, ?int $remainingDays): string
         return 'cell-darkgray';
     }
     if ($status === '未開始' || $status === '進行中') {
-        if ($remainingDays !== null && $remainingDays <= 3) {
+        if ($remainingDays === null) {
+            return '';
+        }
+        // 「每週」不提前預警，到當天才變色/提醒；含逾期（負數 <= 0）
+        if ($frequency === \App\EventFrequency::Weekly) {
+            return $remainingDays <= 0 ? 'cell-red' : '';
+        }
+        if ($remainingDays <= 3) {
             return 'cell-red';   // 含逾期（負數 ≤ 3）
         }
-        if ($remainingDays !== null && $remainingDays <= 7) {
+        if ($remainingDays <= 7) {
             return 'cell-yellow';
         }
         return '';
@@ -46,31 +53,44 @@ function todo_sort_group(string $status, ?int $remainingDays, bool $canSign): in
 }
 
 // 同分組內的頻率排序：合約（類別=合約，不論其自身頻率文字）最前，
-// 其餘依 合約>每週>每月>每半年>每年>每兩年>每三年>不定期 排序，未列出的頻率值併入「不定期」（最後）。
+// 其餘依 合約>每週>每月>單數月/雙數月>每半年>每年>每兩年>每三年>不定期 排序，未列出的頻率值併入「不定期」（最後）。
 function todo_frequency_priority(string $category, string $frequency): int
 {
     if ($category === '合約') {
         return 0;
     }
-    return match (\App\EventFrequency::tryFrom($frequency)) {
-        \App\EventFrequency::Weekly    => 1,
-        \App\EventFrequency::Monthly   => 2,
-        \App\EventFrequency::HalfYear  => 3,
-        \App\EventFrequency::Yearly    => 4,
-        \App\EventFrequency::TwoYear   => 5,
-        \App\EventFrequency::ThreeYear => 6,
-        default => 7,
-    };
+    switch (\App\EventFrequency::tryFrom($frequency)) {
+        case \App\EventFrequency::Weekly:
+            return 1;
+        case \App\EventFrequency::Monthly:
+            return 2;
+        case \App\EventFrequency::OddMonth:
+        case \App\EventFrequency::EvenMonth:
+            return 3;
+        case \App\EventFrequency::HalfYear:
+            return 4;
+        case \App\EventFrequency::Yearly:
+            return 5;
+        case \App\EventFrequency::TwoYear:
+            return 6;
+        case \App\EventFrequency::ThreeYear:
+            return 7;
+        default:
+            return 8;
+    }
 }
 
 function contract_cell_class(string $status): string
 {
-    return match ($status) {
-        '已到期'  => 'cell-red',
-        '30天內'  => 'cell-red',
-        '31–90天' => 'cell-yellow',
-        default   => '',
-    };
+    switch ($status) {
+        case '已到期':
+        case '30天內':
+            return 'cell-red';
+        case '31–90天':
+            return 'cell-yellow';
+        default:
+            return '';
+    }
 }
 
 // 頻率顯示文字統一（底層存值不變：events_master ENUM／表單 value 仍是 半年/2年/3年，
@@ -79,7 +99,8 @@ function frequency_label(string $freq): string
 {
     // 合約的頻率是獨立的自由選項欄位（例如「每季」「一次性」），不在 EventFrequency 之列，
     // tryFrom() 找不到就回 null，交由下面的 ?? 原樣顯示——這正是既有行為，不是漏判。
-    return \App\EventFrequency::tryFrom($freq)?->label() ?? $freq;
+    $resolved = \App\EventFrequency::tryFrom($freq);
+    return $resolved !== null ? \App\EventFrequency::label($resolved) : $freq;
 }
 
 function calendar_cell_class(bool $hasMonthly, bool $hasYearly, bool $hasContract): string
@@ -128,13 +149,22 @@ function baseline_value_label(string $frequency, ?string $raw): string
     if ($raw === '') {
         return '';
     }
-    return match (\App\EventFrequency::tryFrom($frequency)) {
-        \App\EventFrequency::Weekly => ctype_digit($raw) ? '週' . baseline_pad2((int) $raw) : $raw,
-        \App\EventFrequency::Monthly => $raw === 'EOM' ? '月底（EOM）' : (ctype_digit($raw) ? baseline_pad2((int) $raw) . '號' : $raw),
-        \App\EventFrequency::Yearly => baseline_month_day_label($raw),
-        \App\EventFrequency::HalfYear => implode('、', array_map('baseline_month_day_label', explode(',', $raw))),
-        \App\EventFrequency::TwoYear, \App\EventFrequency::ThreeYear => baseline_multi_year_label($raw),
-        // 不定期／依合約／其他，或格式不明的既有資料：原樣顯示，不隱藏異常值
-        default => $raw,
-    };
+    switch (\App\EventFrequency::tryFrom($frequency)) {
+        case \App\EventFrequency::Weekly:
+            return ctype_digit($raw) ? '週' . baseline_pad2((int) $raw) : $raw;
+        case \App\EventFrequency::Monthly:
+        case \App\EventFrequency::OddMonth:
+        case \App\EventFrequency::EvenMonth:
+            return $raw === 'EOM' ? '月底（EOM）' : (ctype_digit($raw) ? baseline_pad2((int) $raw) . '號' : $raw);
+        case \App\EventFrequency::Yearly:
+            return baseline_month_day_label($raw);
+        case \App\EventFrequency::HalfYear:
+            return implode('、', array_map('baseline_month_day_label', explode(',', $raw)));
+        case \App\EventFrequency::TwoYear:
+        case \App\EventFrequency::ThreeYear:
+            return baseline_multi_year_label($raw);
+        default:
+            // 不定期／依合約／其他，或格式不明的既有資料：原樣顯示，不隱藏異常值
+            return $raw;
+    }
 }

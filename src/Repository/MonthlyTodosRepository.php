@@ -3,7 +3,12 @@ namespace App\Repository;
 
 final class MonthlyTodosRepository
 {
-    public function __construct(private \PDO $pdo) {}
+    private $pdo;
+
+    public function __construct(\PDO $pdo)
+    {
+        $this->pdo = $pdo;
+    }
 
     public function forMonth(string $ym): array
     {
@@ -235,6 +240,22 @@ final class MonthlyTodosRepository
         $st = $this->pdo->prepare(
             "SELECT id, category, task_name, department, due_date FROM monthly_todos
              WHERE `year_month` = ? AND status = '簽核中'"
+        );
+        $st->execute([$ym]);
+        return $st->fetchAll();
+    }
+
+    /**
+     * 每日提醒信用：該月「已完成」或「簽核中」的待辦，供篩出尚未寄過通知的「通知」關卡。
+     * 兩種狀態都要涵蓋：整段簽核流程只有「通知」關卡（沒有 approve 關卡）時，狀態會直接是
+     * 「已完成」；混有 approve 關卡、approve 還沒簽完時，狀態停在「簽核中」，但通知關卡
+     * 不等 approve 關卡簽完，一樣要照常通知，所以兩種狀態的候選都要撈出來交給呼叫端判斷。
+     */
+    public function pendingNotificationCandidates(string $ym): array
+    {
+        $st = $this->pdo->prepare(
+            "SELECT id, category, task_name, department, due_date, completed_at FROM monthly_todos
+             WHERE `year_month` = ? AND status IN ('已完成', '簽核中')"
         );
         $st->execute([$ym]);
         return $st->fetchAll();

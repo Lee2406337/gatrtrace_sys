@@ -4,6 +4,7 @@
 // 兩個入口都必須各自 require 這支檔案，確保安全前置邏輯只有一份、不會兩邊各自維護一份而日後漂移。
 
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../src/Polyfills.php';
 require_once __DIR__ . '/color_rules.php';
 
 // php.ini 的 date.timezone 未必是 Asia/Taipei（本機曾是 Europe/Berlin），會讓「今天」

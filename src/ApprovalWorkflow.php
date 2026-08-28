@@ -6,10 +6,13 @@ final class ApprovalWorkflow
     /** @return array{steps:array,current_step:?int,status:string} */
     public function build(array $steps, ?int $deptManagerId, ?int $adminManagerId, array $userActive, array $signed, ?int $responsibleUserId = null): array
     {
-        usort($steps, fn($a, $b) => (int) $a['step_order'] <=> (int) $b['step_order']);
+        usort($steps, function ($a, $b) {
+            return (int) $a['step_order'] <=> (int) $b['step_order'];
+        });
         $out = [];
         foreach ($steps as $s) {
             $order = (int) $s['step_order'];
+            $stepKind = $s['step_kind'] ?? 'approve';
             $resolved = null;
             if ($s['signer_kind'] === 'role') {
                 if ($s['signer_value'] === '部門主管') {
@@ -21,6 +24,22 @@ final class ApprovalWorkflow
                 $uid = (int) $s['signer_value'];
                 $resolved = !empty($userActive[$uid]) ? $uid : null;
             }
+            // 「通知」關卡：解出收件人後無條件標記跳過，不比照「本人不可簽自己」規則，
+            // 不參與 current_step／signedCount／status 判斷，永遠不卡流程；收件人另存在
+            // notify_target_user_id，供 ReminderService 判斷要通知誰。
+            if ($stepKind === 'notify') {
+                $out[] = [
+                    'step_order' => $order,
+                    'label' => $s['label'],
+                    'step_kind' => 'notify',
+                    'resolved_user_id' => null,
+                    'notify_target_user_id' => $resolved,
+                    'skipped' => true,
+                    'signed' => false,
+                    'signer_user_id' => null,
+                ];
+                continue;
+            }
             // 負責人本人不可簽核自己的待辦：該關視為無在職簽核人而跳過
             if ($responsibleUserId !== null && $resolved === $responsibleUserId) {
                 $resolved = null;
@@ -29,7 +48,9 @@ final class ApprovalWorkflow
             $out[] = [
                 'step_order' => $order,
                 'label' => $s['label'],
+                'step_kind' => 'approve',
                 'resolved_user_id' => $resolved,
+                'notify_target_user_id' => null,
                 'skipped' => $resolved === null,
                 'signed' => $isSigned,
                 'signer_user_id' => $isSigned ? (int) $signed[$order] : null,
@@ -44,8 +65,12 @@ final class ApprovalWorkflow
             }
         }
 
-        $nonSkipped = array_filter($out, fn($st) => !$st['skipped']);
-        $signedCount = count(array_filter($nonSkipped, fn($st) => $st['signed']));
+        $nonSkipped = array_filter($out, function ($st) {
+            return !$st['skipped'];
+        });
+        $signedCount = count(array_filter($nonSkipped, function ($st) {
+            return $st['signed'];
+        }));
         if (count($nonSkipped) === 0 || $signedCount === count($nonSkipped)) {
             $status = '已簽核';
         } elseif ($signedCount > 0) {

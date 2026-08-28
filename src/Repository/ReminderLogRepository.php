@@ -3,7 +3,12 @@ namespace App\Repository;
 
 final class ReminderLogRepository
 {
-    public function __construct(private \PDO $pdo) {}
+    private $pdo;
+
+    public function __construct(\PDO $pdo)
+    {
+        $this->pdo = $pdo;
+    }
 
     public function alreadySent(string $date, string $email, ?string $department, string $kind = 'todo'): bool
     {

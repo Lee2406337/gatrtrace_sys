@@ -5,11 +5,12 @@ require_once __DIR__ . '/../config/color_rules.php';
 
 final class ReminderCollector
 {
-    /** @return array{bundles: array<string,array>, signing_bundles: array<string,array>, skipped: int} */
-    public function collect(array $todos, array $contracts, array $signings, array $undated, \DateTimeImmutable $today): array
+    /** @return array{bundles: array<string,array>, signing_bundles: array<string,array>, notify_bundles: array<string,array>, skipped: int} */
+    public function collect(array $todos, array $contracts, array $signings, array $undated, \DateTimeImmutable $today, array $notifications = []): array
     {
         $bundles = [];
         $signingBundles = [];
+        $notifyBundles = [];
         $skipped = 0;
 
         foreach ($todos as $t) {
@@ -20,7 +21,7 @@ final class ReminderCollector
                 continue;
             }
             $remaining = (int) $today->diff(new \DateTimeImmutable($t['due_date']))->format('%r%a');
-            $cls = todo_cell_class($t['status'], $remaining);
+            $cls = todo_cell_class($t['status'], $remaining, (string) ($t['frequency'] ?? ''));
             if (!in_array($t['status'], ['未開始', '進行中', '簽核中'], true)) {
                 continue;
             }
@@ -76,6 +77,17 @@ final class ReminderCollector
             $signingBundles[$email]['signings'][] = $sg;
         }
 
+        // 已完成通知：另外獨立成一封「已完成通知」信，不分部門、比照「簽核提醒」的分組方式——
+        // 同一人當天所有待通知項目合成一封，不受到期日遠近限制、也不用等前面關卡簽完
+        foreach ($notifications as $nt) {
+            $email = (string) ($nt['email'] ?? '');
+            if ($email === '') { $skipped++; continue; }
+            if (!isset($notifyBundles[$email])) {
+                $notifyBundles[$email] = ['name' => (string) $nt['recipient_label'], 'email' => $email, 'notifications' => []];
+            }
+            $notifyBundles[$email]['notifications'][] = $nt;
+        }
+
         // 未指定日期事項（頻率「其他」等）：只附加在「本來就會寄出」的部門信件最下面，
         // 不為了單純有未指定日期事項而新增收件人（不會在這裡呼叫 ensureBundle 新建 bundle）。
         $undatedByDept = [];
@@ -90,7 +102,7 @@ final class ReminderCollector
         }
         unset($bundle);
 
-        return ['bundles' => $bundles, 'signing_bundles' => $signingBundles, 'skipped' => $skipped];
+        return ['bundles' => $bundles, 'signing_bundles' => $signingBundles, 'notify_bundles' => $notifyBundles, 'skipped' => $skipped];
     }
 
     // 分開寄：同一人身兼多部門會收到多封信，各自只含該部門的項目——

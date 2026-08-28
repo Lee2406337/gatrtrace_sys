@@ -20,9 +20,9 @@ final class ImportService
      * 這種寫法，所以兩種寫法都接受，正規化成 ENUM 實際存的值再驗證/寫入。
      */
     private const EVENT_FREQUENCY_ALIASES = [
-        '每半年' => EventFrequency::HalfYear->value,
-        '每兩年' => EventFrequency::TwoYear->value,
-        '每三年' => EventFrequency::ThreeYear->value,
+        '每半年' => EventFrequency::HalfYear,
+        '每兩年' => EventFrequency::TwoYear,
+        '每三年' => EventFrequency::ThreeYear,
     ];
 
     /**
@@ -52,16 +52,30 @@ final class ImportService
     {
         $content = self::decode($content);
         $lines = preg_split('/\r\n|\r|\n/', $content);
-        $rows = [];
-        foreach ($lines as $i => $line) {
-            $lineNo = $i + 1;
-            if ($lineNo === 1 || trim($line) === '') {
-                continue;
+
+        // Windows 正式機的 PHP 行程序 LC_CTYPE 預設是 Big5（Chinese (Traditional)_Taiwan.950），
+        // str_getcsv() 在這個 locale 下對特定中文字（例如「每週」「每月」單獨出現在逗號前）會
+        // 誤判欄位邊界，導致該逗號沒有被當成分隔符號、兩欄被黏成一欄（本機 XAMPP 因為預設
+        // locale 不同所以測不出來）。暫時切成 C locale 讓 str_getcsv() 用純位元組比對分隔符號，
+        // 解析完再還原，避免影響其他依賴伺服器 locale 的程式碼。
+        $prevLocale = setlocale(LC_CTYPE, 0);
+        setlocale(LC_CTYPE, 'C');
+        try {
+            $rows = [];
+            foreach ($lines as $i => $line) {
+                $lineNo = $i + 1;
+                if ($lineNo === 1 || trim($line) === '') {
+                    continue;
+                }
+                $cols = array_map(function ($c) {
+                    return trim((string) $c);
+                }, str_getcsv($line));
+                $rows[] = ['line' => $lineNo, 'cols' => $cols];
             }
-            $cols = array_map(fn($c) => trim((string) $c), str_getcsv($line));
-            $rows[] = ['line' => $lineNo, 'cols' => $cols];
+            return $rows;
+        } finally {
+            setlocale(LC_CTYPE, $prevLocale);
         }
-        return $rows;
     }
 
     /** @return array{data: ?array, error: ?string} */
@@ -124,12 +138,12 @@ final class ImportService
         }
         // 「每年」的基準值是 MM-DD（不帶年），但 Excel 常自動把它補成完整日期
         // （例如 08-11 變成 2026/8/11），一律轉回 BaselineFormat::parseMonthDay() 要的格式再驗證
-        if ($frequency === EventFrequency::Yearly->value) {
+        if ($frequency === EventFrequency::Yearly) {
             $baseline = self::normalizeMonthDay($baseline);
         }
         // 「每兩年」「每三年」的基準值是完整日期 YYYY-MM-DD，但 Excel 常把打的日期自動改成
         // YYYY/MM/DD（用 / 顯示/存回 CSV），BaselineFormat::parseFullDate() 只認 -，先正規化再驗證
-        if (in_array($frequency, [EventFrequency::TwoYear->value, EventFrequency::ThreeYear->value], true)) {
+        if (in_array($frequency, [EventFrequency::TwoYear, EventFrequency::ThreeYear], true)) {
             $baseline = str_replace('/', '-', trim($baseline));
         }
         $err = BaselineValidator::validate($frequency, $baseline);
@@ -229,10 +243,9 @@ final class ImportService
     /** 動態產生範本 CSV（欄位跟解析器共用同一份常數，不會漂移），含 BOM 方便 Excel 直接雙擊開啟辨識 UTF-8 */
     public static function template(string $type): string
     {
-        $rows = match ($type) {
-            'contracts' => [self::CONTRACT_HEADERS, ['辦公室影印機租賃', '每年', '2026-01-01', '2027-01-01', '總務', '範例列，可刪除']],
-            default     => [self::EVENT_HEADERS, ['環安', '消防設備檢查', '每月', '15', '總務', '範例列，可刪除']],
-        };
+        $rows = $type === 'contracts'
+            ? [self::CONTRACT_HEADERS, ['辦公室影印機租賃', '每年', '2026-01-01', '2027-01-01', '林口總務', '範例列，可刪除']]
+            : [self::EVENT_HEADERS, ['環安', '消防設備檢查', '每月', '15', '林口總務', '範例列，可刪除']];
         $out = "\xEF\xBB\xBF";
         foreach ($rows as $r) {
             $out .= implode(',', array_map([self::class, 'csvEscape'], $r)) . "\r\n";

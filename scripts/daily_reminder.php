@@ -1,6 +1,7 @@
 <?php
 if (PHP_SAPI !== 'cli') { http_response_code(403); exit('CLI only'); }
 require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../src/Polyfills.php';
 
 // php.ini 的 date.timezone 未必是 Asia/Taipei，會讓「今天」判定位移，進而影響提醒信去重鍵
 date_default_timezone_set('Asia/Taipei');

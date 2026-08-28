@@ -1,4 +1,4 @@
-<?php /** @var string $ym */ /** @var array $dated */ /** @var array $undated */ /** @var array $approval */ /** @var bool $allCompleted */ /** @var array $fullySigned */
+<?php /** @var string $ym */ /** @var array $dated */ /** @var array $undated */ /** @var array $approval */ /** @var bool $allCompleted */ /** @var array $fullySigned */ /** @var array $deptFilter */ /** @var string $filterQs */
 $today = new DateTimeImmutable('today');
 $statuses = \App\TodoValidator::STATUSES;
 $curYm = date('Y-m');
@@ -33,7 +33,7 @@ function todos_render_row(array $row, string $ym, array $approval, array $status
           </select>
           <input name="follow_up" placeholder="後續辦理(已完成必填)" value="<?= htmlspecialchars((string)$row['follow_up']) ?>">
           <input name="note" placeholder="備註(異常須含原因)" value="<?= htmlspecialchars((string)$row['note']) ?>">
-          <?php if (in_array($row['frequency'], [\App\EventFrequency::Other->value, \App\EventFrequency::Irregular->value], true)): ?>
+          <?php if (in_array($row['frequency'], [\App\EventFrequency::Other, \App\EventFrequency::Irregular], true)): ?>
             <input name="next_due_date" type="date" class="next-due-input hidden" title="下一次需要處理的時間（完成時必填，會自動建立下一筆待辦）">
           <?php endif; ?>
           <button class="btn" type="submit">更新</button>
@@ -78,19 +78,36 @@ function todos_render_row(array $row, string $ym, array $approval, array $status
   <p class="cell-red pad-sm"><?= htmlspecialchars($_GET['err']) ?></p>
 <?php endif; ?>
 <div class="my-1">
-  <a class="btn btn-secondary" href="index.php?r=todos&ym=<?= urlencode($prevYm) ?>">◀ 上個月</a>
+  <a class="btn btn-secondary" href="index.php?r=todos&ym=<?= urlencode($prevYm) . $filterQs ?>">◀ 上個月</a>
   <?php if ($ym !== $curYm): ?>
-    <a class="btn btn-secondary" href="index.php?r=todos&ym=<?= urlencode($curYm) ?>">回到本月</a>
+    <a class="btn btn-secondary" href="index.php?r=todos&ym=<?= urlencode($curYm) . $filterQs ?>">回到本月</a>
   <?php endif; ?>
-  <a class="btn btn-secondary" href="index.php?r=todos&ym=<?= urlencode($nextYm) ?>">下個月 ▶</a>
+  <a class="btn btn-secondary" href="index.php?r=todos&ym=<?= urlencode($nextYm) . $filterQs ?>">下個月 ▶</a>
 </div>
 <div class="my-1">
-  <form method="post" action="index.php?r=todos&action=expand&ym=<?= urlencode($ym) ?>" class="inline" data-confirm="重新整理？會產生本月新待辦與合約提醒、清掉已完成合約的殘留提醒，重複項目會自動略過。">
+  <form method="post" action="index.php?r=todos&action=expand&ym=<?= urlencode($ym) . $filterQs ?>" class="inline" data-confirm="重新整理？會產生本月新待辦與合約提醒、清掉已完成合約的殘留提醒，重複項目會自動略過。">
     <input type="hidden" name="_csrf" value="<?= \App\Csrf::token() ?>">
     <button class="btn" type="submit">重新整理</button>
   </form>
-  <a class="btn btn-secondary" href="index.php?r=todos&action=new&ym=<?= urlencode($ym) ?>">＋ 新增待辦</a>
+  <a class="btn btn-secondary" href="index.php?r=todos&action=new&ym=<?= urlencode($ym) . $filterQs ?>">＋ 新增待辦</a>
 </div>
+<form method="get" action="index.php" class="my-1 flex flex-wrap flex-end gap-6">
+  <input type="hidden" name="r" value="todos">
+  <input type="hidden" name="ym" value="<?= htmlspecialchars($ym) ?>">
+  <div class="flex gap-6 flex-wrap">
+    <label>單位篩選</label>
+    <?php foreach (\App\Departments::ALL as $d): ?>
+      <label class="inline">
+        <input type="checkbox" name="flt_department[]" value="<?= htmlspecialchars($d) ?>" <?= in_array($d, $deptFilter, true) ? 'checked' : '' ?>>
+        <?= htmlspecialchars($d) ?>
+      </label>
+    <?php endforeach; ?>
+  </div>
+  <div>
+    <button class="btn" type="submit">篩選</button>
+    <a class="btn btn-secondary" href="index.php?r=todos&ym=<?= urlencode($ym) ?>">清除篩選</a>
+  </div>
+</form>
 <?php if ($allCompleted): ?>
   <p class="notice-success">全部已完成</p>
 <?php elseif (empty($dated)): ?>
@@ -102,7 +119,7 @@ function todos_render_row(array $row, string $ym, array $approval, array $status
   <tbody>
   <?php foreach ($dated as $row):
       $remain = (int)$today->diff(new DateTimeImmutable($row['due_date']))->format('%r%a');
-      $cls = todo_cell_class($row['status'], $remain);
+      $cls = todo_cell_class($row['status'], $remain, (string) ($row['frequency'] ?? ''));
       // 逾期（今天 > 應完成日）且尚未處理完：整列標紅，比只標類別欄更醒目
       $isOverdue = $remain < 0 && in_array($row['status'], ['未開始', '進行中'], true);
       $rowCls = $isOverdue ? 'cell-red' : '';
@@ -122,7 +139,7 @@ function todos_render_row(array $row, string $ym, array $approval, array $status
     <th>目前狀態</th><th>後續辦理事項</th><th>備註</th><th>簽核</th><th>操作</th></tr></thead>
   <tbody>
   <?php foreach ($undated as $row):
-      $cls = todo_cell_class($row['status'], null);
+      $cls = todo_cell_class($row['status'], null, (string) ($row['frequency'] ?? ''));
       echo todos_render_row($row, $ym, $approval, $statuses, '', $cls, '—');
   endforeach; ?>
   </tbody>

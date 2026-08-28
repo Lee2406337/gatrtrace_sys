@@ -31,16 +31,28 @@ final class ContractStatus
             }
         }
 
-        $suggestion = match ($status) {
-            '需確認'   => '請確認到期日格式',
-            '未填到期日' => '請補上合約迄日',
-            '已到期'   => '請確認是否已續約或結案',
-            '30天內'   => '立即啟動續約／請款／採購流程',
-            '31–90天'  => '安排續約詢價與內部確認',
-            '>90天'    => '持續追蹤',
-            default    => '',
-        };
+        return ['remaining' => $remaining, 'status' => $status, 'suggestion' => self::suggestionFor($status)];
+    }
 
-        return ['remaining' => $remaining, 'status' => $status, 'suggestion' => $suggestion];
+    /** 拆成獨立方法、每個 case 直接 return，跟其餘 match()→switch 改寫維持同一種寫法，
+     *  避免 break-then-fallthrough-if-forgotten 這種日後加 case 容易漏掉的風險。 */
+    private static function suggestionFor(string $status): string
+    {
+        switch ($status) {
+            case '需確認':
+                return '請確認到期日格式';
+            case '未填到期日':
+                return '請補上合約迄日';
+            case '已到期':
+                return '請確認是否已續約或結案';
+            case '30天內':
+                return '立即啟動續約／請款／採購流程';
+            case '31–90天':
+                return '安排續約詢價與內部確認';
+            case '>90天':
+                return '持續追蹤';
+            default:
+                return '';
+        }
     }
 }

@@ -13,6 +13,7 @@
       <a href="admin.php?r=users">使用者後台</a>
       <a href="admin.php?r=todos">本月待辦後台</a>
       <a href="admin.php?r=approval-steps">簽核關卡設定</a>
+      <a href="admin.php?r=extra-recipients">提醒信副本設定</a>
       <a href="admin.php?r=change-logs">修改紀錄</a>
       <a href="admin.php?r=import">資料匯入</a>
       <a href="index.php?r=todos">返回前台</a>

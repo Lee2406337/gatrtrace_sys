@@ -55,7 +55,7 @@ final class ExpandMonthService
 
         $events = (new EventsRepository($pdo))->all();
         foreach ($events as $e) {
-            if (in_array($e['frequency'], [EventFrequency::Other->value, EventFrequency::Irregular->value], true)) {
+            if (in_array($e['frequency'], [EventFrequency::Other, EventFrequency::Irregular], true)) {
                 if ($todos->hasOpenInstanceForEvent((int) $e['id'])) {
                     $skipped++;
                     continue;

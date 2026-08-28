@@ -4,7 +4,9 @@
 /** @var string $csvContent */
 $labels = ['ok' => '將匯入', 'error' => '格式錯誤，跳過', 'duplicate' => '重複，跳過'];
 $classes = ['ok' => 'cell-green', 'error' => 'cell-red', 'duplicate' => 'cell-yellow'];
-$okCount = count(array_filter($results, fn($r) => $r['status'] === 'ok'));
+$okCount = count(array_filter($results, function ($r) {
+    return $r['status'] === 'ok';
+}));
 $skipCount = count($results) - $okCount;
 ?>
 <h1>匯入預覽（<?= $type === 'contracts' ? '合約' : '本月待辦' ?>）</h1>

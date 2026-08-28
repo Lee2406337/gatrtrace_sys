@@ -19,6 +19,7 @@ use App\DateParser;
 use App\ContractStatus;
 use App\BaselineValidator;
 use App\EventFrequency;
+use App\Departments;
 
 // 整段路由處理包一層防護：連線建立後若在處理過程中中途斷線（例如不穩定網路造成
 // 「MySQL server has gone away」），也給乾淨訊息而非把檔案路徑堆疊噴給使用者看。
@@ -136,8 +137,8 @@ if ($r === 'todos') {
         $frequency = (string) ($current['frequency'] ?? '');
         $becomingComplete = $status === '已完成' && $prevStatus !== '已完成';
         // 頻率「其他」（含舊資料「不定期」）轉為已完成時，須填下一次需要處理的時間，系統會自動建立下一筆待辦
-        $nextDueDate = in_array($frequency, [EventFrequency::Other->value, EventFrequency::Irregular->value], true) ? DateParser::parse($nextDueDateRaw) : null;
-        if ($becomingComplete && in_array($frequency, [EventFrequency::Other->value, EventFrequency::Irregular->value], true) && $nextDueDate === null) {
+        $nextDueDate = in_array($frequency, [EventFrequency::Other, EventFrequency::Irregular], true) ? DateParser::parse($nextDueDateRaw) : null;
+        if ($becomingComplete && in_array($frequency, [EventFrequency::Other, EventFrequency::Irregular], true) && $nextDueDate === null) {
             header('Location: index.php?r=todos&ym=' . urlencode($ym) . '&err=' . urlencode('頻率為「其他」完成時，需填寫下一次需要處理的時間。')); exit;
         }
         // 選「已完成」時：若需要簽核（有生效中的簽核關卡），自動轉為「簽核中」，不會直接卡在已完成
@@ -186,7 +187,7 @@ if ($r === 'todos') {
             header('Location: index.php?r=todos&action=new&ym=' . urlencode($ym) . '&err=' . urlencode($err)); exit;
         }
         $freq = (string) ($d['frequency'] ?? '');
-        $isOtherFreq = in_array($freq, [EventFrequency::Other->value, EventFrequency::Irregular->value], true);
+        $isOtherFreq = in_array($freq, [EventFrequency::Other, EventFrequency::Irregular], true);
         $nextDueDate = $isOtherFreq ? DateParser::parse($d['next_due_date'] ?? '') : null;
         if ($isOtherFreq && ($d['status'] ?? '') === '已完成' && $nextDueDate === null) {
             header('Location: index.php?r=todos&action=new&ym=' . urlencode($ym) . '&err=' . urlencode('頻率為「其他」完成時，需填寫下一次需要處理的時間。')); exit;
@@ -280,6 +281,15 @@ if ($r === 'todos') {
         $byId[$row['id']] = $row;
     }
     $rows = array_values($byId);
+    // 單位篩選：array_intersect 順便擋掉被竄改的非法值；空陣列＝不篩、顯示全部
+    $deptFilter = array_values(array_intersect((array) ($_GET['flt_department'] ?? []), Departments::ALL));
+    if ($deptFilter) {
+        $rows = array_values(array_filter($rows, function ($row) use ($deptFilter) {
+            return in_array($row['department'], $deptFilter, true);
+        }));
+    }
+    // 切換月份／重新整理／新增待辦時要保留目前的單位篩選，附加在對應連結後面
+    $filterQs = $deptFilter ? ('&' . http_build_query(['flt_department' => $deptFilter])) : '';
     $stepsRepo = new ApprovalStepsRepository($pdo);
     $apRepo = new ApprovalsRepository($pdo);
     $steps = $stepsRepo->all();
@@ -304,8 +314,12 @@ if ($r === 'todos') {
         $tid = (int) $row['id'];
         return !isset($approval[$tid]) || $approval[$tid]['status'] !== '已簽核';
     });
-    $dated = array_values(array_filter($visibleRows, fn($x) => $x['due_date'] !== null));
-    $undated = array_filter($visibleRows, fn($x) => $x['due_date'] === null);
+    $dated = array_values(array_filter($visibleRows, function ($x) {
+        return $x['due_date'] !== null;
+    }));
+    $undated = array_filter($visibleRows, function ($x) {
+        return $x['due_date'] === null;
+    });
     // 已完成且已簽核完成、被上面 $visibleRows 篩掉的項目：另開一區可查閱簽核意見
     $fullySigned = array_values(array_filter($rows, function ($row) use ($approval) {
         if ($row['status'] !== '已完成') {
@@ -315,7 +329,7 @@ if ($r === 'todos') {
         return isset($approval[$tid]) && $approval[$tid]['status'] === '已簽核';
     }));
     // 排序：使用者本人待簽核 > 逾期／≤3天 > 4-7天 > 一般(>7天) > 已完成／簽核中 > 異常；
-    // 同分組內再依 合約>每週>每月>每半年>每年>每兩年>每三年>不定期 排序，最後依到期日/id 穩定排序
+    // 同分組內再依 合約>每週>每月>單數月/雙數月>每半年>每年>每兩年>每三年>不定期 排序，最後依到期日/id 穩定排序
     $todayForSort = new DateTimeImmutable('today');
     usort($dated, function ($a, $b) use ($todayForSort, $approval) {
         $remainA = (int) $todayForSort->diff(new DateTimeImmutable($a['due_date']))->format('%r%a');
@@ -339,7 +353,7 @@ if ($r === 'todos') {
     });
     // 本來有資料、但全部被「已完成且已簽核完成」篩掉才算「全部已完成」；本來就沒資料是另一種狀態
     $allCompleted = count($rows) > 0 && count($visibleRows) === 0;
-    render('todos', ['title' => '本月待辦', 'ym' => $ym, 'dated' => $dated, 'undated' => $undated, 'approval' => $approval, 'allCompleted' => $allCompleted, 'fullySigned' => $fullySigned]);
+    render('todos', ['title' => '本月待辦', 'ym' => $ym, 'dated' => $dated, 'undated' => $undated, 'approval' => $approval, 'allCompleted' => $allCompleted, 'fullySigned' => $fullySigned, 'deptFilter' => $deptFilter, 'filterQs' => $filterQs]);
     exit;
 }
 
@@ -444,8 +458,12 @@ echo '找不到頁面';
     http_response_code(503);
     exit('資料庫連線逾時或中斷，請重新整理再試一次。若持續發生，請檢查網路連線是否穩定。');
 } catch (\Throwable $e) {
-    // 兜底：避免任何未預期例外把完整 stack trace（含絕對路徑）直接印給瀏覽器
-    error_log('[newsys/index] ' . $e->getMessage() . "\n" . $e->getTraceAsString());
+    // 兜底：避免任何未預期例外把完整 stack trace（含絕對路徑）直接印給瀏覽器。
+    // log 只記類別/訊息/檔案位置，刻意不用 getTraceAsString()——PHP 7.3 沒有
+    // zend.exception_ignore_args 這個 ini（7.4+ 才有），trace 裡每個 frame 的參數
+    // 一定會被印出來，萬一某次例外剛好發生在密碼相關呼叫（登入、改密碼）中途，
+    // 密碼明碼就會被完整寫進這份 log。
+    error_log('[newsys/index] ' . get_class($e) . '：' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
     http_response_code(500);
     exit('系統發生錯誤，請重新整理後再試。若持續發生，請聯絡系統管理員。');
 }

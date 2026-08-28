@@ -3,7 +3,12 @@ namespace App\Repository;
 
 final class ApprovalsRepository
 {
-    public function __construct(private \PDO $pdo) {}
+    private $pdo;
+
+    public function __construct(\PDO $pdo)
+    {
+        $this->pdo = $pdo;
+    }
 
     public function forTodo(int $todoId): array
     {
@@ -67,6 +72,22 @@ final class ApprovalsRepository
         $this->pdo->prepare("DELETE FROM approvals WHERE monthly_todo_id = ?")->execute([$todoId]);
     }
 
+    /** 「通知」關卡是否已經寄過通知：靠 approval_log 的永久紀錄判斷，不是「今天寄過」而是「這輩子寄過」 */
+    public function alreadyNotified(int $todoId, int $stepOrder): bool
+    {
+        $st = $this->pdo->prepare(
+            "SELECT COUNT(*) FROM approval_log WHERE monthly_todo_id = ? AND step_order = ? AND action = '通知'"
+        );
+        $st->execute([$todoId, $stepOrder]);
+        return (int) $st->fetchColumn() > 0;
+    }
+
+    /** 通知信實際寄出成功後呼叫，寫入稽核紀錄，之後 alreadyNotified() 才會擋掉重複寄送 */
+    public function recordNotified(int $todoId, int $stepOrder, string $stepLabel): void
+    {
+        $this->logEvent($todoId, $stepOrder, $stepLabel, '通知', '系統（每日提醒排程）', null);
+    }
+
     public function opinionsFor(int $todoId): array
     {
         $st = $this->pdo->prepare(
@@ -86,7 +107,7 @@ final class ApprovalsRepository
     public function buildFor(int $todoId, array $steps, ?array $signedMap = null): array
     {
         $ctx = $this->resolveContext($todoId, $steps);
-        $signedMap ??= $this->forTodo($todoId);
+        $signedMap = $signedMap ?? $this->forTodo($todoId);
         return (new \App\ApprovalWorkflow())->build(
             $steps, $ctx['dept_manager_id'], $ctx['admin_manager_id'], $ctx['user_active'], $signedMap, $ctx['responsible_user_id']
         );
@@ -103,8 +124,9 @@ final class ApprovalsRepository
         $dept = $row['department'] ?? null;
         $responsibleUserId = null;
 
-        $deptManagerId = $dept ? $this->activeManagerOf((string) $dept) : null;
-        $adminManagerId = $this->activeManagerOf('管理部');
+        $usersRepo = new UsersRepository($this->pdo);
+        $deptManagerId = $dept ? $usersRepo->activeManagerOf((string) $dept) : null;
+        $adminManagerId = $usersRepo->activeManagerOf('管理部');
 
         $userActive = [];
         foreach ($steps as $s) {
@@ -119,18 +141,6 @@ final class ApprovalsRepository
             'user_active' => $userActive,
             'responsible_user_id' => $responsibleUserId,
         ];
-    }
-
-    private function activeManagerOf(string $department): ?int
-    {
-        $st = $this->pdo->prepare(
-            "SELECT u.id FROM user_departments ud JOIN users u ON u.id = ud.user_id
-             WHERE ud.department = ? AND ud.is_manager = 1 AND u.employment_status = '在職'
-             ORDER BY u.id LIMIT 1"
-        );
-        $st->execute([$department]);
-        $id = $st->fetchColumn();
-        return $id === false ? null : (int) $id;
     }
 
     private function isActiveUser(int $uid): bool

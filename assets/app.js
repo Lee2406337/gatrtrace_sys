@@ -172,7 +172,7 @@ document.addEventListener('change', function (e) {
     var freq = freqSel.value, v = '';
     if (freq === '每週') {
       v = val('bl-week');
-    } else if (freq === '每月') {
+    } else if (freq === '每月' || freq === '單數月' || freq === '雙數月') {
       v = val('bl-month-day');
     } else if (freq === '每年') {
       var m = val('bl-yearly-m'), d = val('bl-yearly-d');
@@ -209,7 +209,7 @@ document.addEventListener('change', function (e) {
   if (existingFreq) {
     if (existingFreq === '每週') {
       document.getElementById('bl-week').value = existingBaseline;
-    } else if (existingFreq === '每月') {
+    } else if (existingFreq === '每月' || existingFreq === '單數月' || existingFreq === '雙數月') {
       document.getElementById('bl-month-day').value = existingBaseline;
     } else if (existingFreq === '每年') {
       var md = existingBaseline.split('-');
